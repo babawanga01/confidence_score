@@ -1,0 +1,13 @@
+streamlit==1.37.1
+
+pandas==2.2.2
+
+numpy==1.26.4
+
+openpyxl==3.1.5 # Excel reader for .xlsx files
+
+python-dateutil==2.9.0.post0 # pandas dependency pin for stability
+
+pytz==2024.1 # pandas dependency pin for stability
+
+tzdata==2024.1 # Windows/macOS timezone db, avoids locale issues
