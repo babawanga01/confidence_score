@@ -126,7 +126,7 @@ if uploaded_file is not None:
             bins=bins,
             labels=labels,
             include_lowest=True,
-            right=False,
+            right=True,
         )
         binned = binned.cat.remove_unused_categories()
         df_clean["confidence_score_Bin"] = binned
