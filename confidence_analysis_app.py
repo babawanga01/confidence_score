@@ -3,13 +3,18 @@ import pandas as pd
 import numpy as np
 from io import BytesIO
 
-# --- Compact UI tweaks ---
+# --- Compact UI tweaks and full-width layout ---
 st.markdown(
     """
     <style>
     div[data-testid='stSlider'] {margin-top: 0.2rem; margin-bottom: 0.2rem;}
     div[data-testid='stSlider'] label {margin-bottom: 0.1rem; font-size: 0.9rem;}
     .block-container h3 {margin-top: 0.25rem; margin-bottom: 0.25rem;}
+    .block-container {
+        padding-left: 2rem;
+        padding-right: 2rem;
+        max-width: 100%;
+    }
     </style>
     """,
     unsafe_allow_html=True,
@@ -184,9 +189,20 @@ if uploaded_file is not None:
                 "Accuracy": "{:.1f}", 
                 "%distribution": "{:.0f}",
                 "%4_5_Scale_Records": "{:.1f}"
-            }),
-            use_container_width=True,
-            height=420,
+            })
+        )
+        
+        # Convert to Excel format
+        output = BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            crosstab.to_excel(writer, sheet_name='Analysis', index=True)
+        output.seek(0)
+        
+        st.download_button(
+            label="📥 Download Excel",
+            data=output,
+            file_name="confidence_score_analysis.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         )
 
         st.header("Key Insights")
@@ -207,21 +223,6 @@ if uploaded_file is not None:
             )
         with col3:
             st.metric("Overall Accuracy", f"{crosstab.loc['All', 'Accuracy']}%")
-
-        st.header("Download Results")
-        
-        # Convert to Excel format
-        output = BytesIO()
-        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            crosstab.to_excel(writer, sheet_name='Analysis', index=True)
-        output.seek(0)
-        
-        st.download_button(
-            label="Download Excel",
-            data=output,
-            file_name="confidence_score_analysis.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        )
 
         with st.expander("View Raw Data Preview"):
             st.dataframe(df_clean.head(100))
