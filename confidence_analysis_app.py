@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+from io import BytesIO
 
 # --- Compact UI tweaks ---
 st.markdown(
@@ -147,15 +148,43 @@ if uploaded_file is not None:
                 count += n
             return round(total / count, 1) if count > 0 else None
 
-        crosstab["Accuracy %"] = crosstab.apply(calc_accuracy, axis=1)
+        crosstab["Accuracy"] = crosstab.apply(calc_accuracy, axis=1)
         grand_total = crosstab.loc["All", "All"]
-        crosstab["% Distribution"] = (
+        crosstab["%distribution"] = (
             ((crosstab["All"] / grand_total) * 100).round(0).astype(int)
         )
+        
+        # Calculate %4_5_Scale_Records
+        def calc_4_5_percentage(row):
+            bucket_4 = row.get(4, 0)
+            bucket_5 = row.get(5, 0)
+            total = row.get("All", 0)
+            if total > 0:
+                return round((bucket_4 + bucket_5) / total * 100, 1)
+            return 0.0
+        
+        crosstab["%4_5_Scale_Records"] = crosstab.apply(calc_4_5_percentage, axis=1)
+        
+        # Rename 'All' to 'Total'
+        crosstab = crosstab.rename(columns={"All": "Total"})
+        
+        # Reorder columns as requested
+        # First get all rating columns that exist (0-5)
+        rating_cols = [col for col in [0, 1, 2, 3, 4, 5] if col in crosstab.columns]
+        
+        # Define the final column order
+        final_column_order = rating_cols + ["Total", "%distribution", "%4_5_Scale_Records", "Accuracy"]
+        
+        # Reorder the dataframe
+        crosstab = crosstab[final_column_order]
 
         st.header("Cross-tabulation Results")
         st.dataframe(
-            crosstab.style.format({"Accuracy %": "{:.1f}", "% Distribution": "{:.0f}"}),
+            crosstab.style.format({
+                "Accuracy": "{:.1f}", 
+                "%distribution": "{:.0f}",
+                "%4_5_Scale_Records": "{:.1f}"
+            }),
             use_container_width=True,
             height=420,
         )
@@ -163,28 +192,35 @@ if uploaded_file is not None:
         st.header("Key Insights")
         col1, col2, col3 = st.columns(3)
         with col1:
-            best_bin = crosstab["Accuracy %"][:-1].idxmax()
+            best_bin = crosstab["Accuracy"][:-1].idxmax()
             st.metric(
                 "Best Performing Bin",
                 str(best_bin),
-                f"{crosstab.loc[best_bin, 'Accuracy %']}%",
+                f"{crosstab.loc[best_bin, 'Accuracy']}%",
             )
         with col2:
-            largest_bin = crosstab["% Distribution"][:-1].idxmax()
+            largest_bin = crosstab["%distribution"][:-1].idxmax()
             st.metric(
                 "Largest Bin",
                 str(largest_bin),
-                f"{crosstab.loc[largest_bin, '% Distribution']}%",
+                f"{crosstab.loc[largest_bin, '%distribution']}%",
             )
         with col3:
-            st.metric("Overall Accuracy", f"{crosstab.loc['All', 'Accuracy %']}%")
+            st.metric("Overall Accuracy", f"{crosstab.loc['All', 'Accuracy']}%")
 
         st.header("Download Results")
+        
+        # Convert to Excel format
+        output = BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            crosstab.to_excel(writer, sheet_name='Analysis', index=True)
+        output.seek(0)
+        
         st.download_button(
-            label="Download CSV",
-            data=crosstab.to_csv(),
-            file_name="confidence_score_analysis.csv",
-            mime="text/csv",
+            label="Download Excel",
+            data=output,
+            file_name="confidence_score_analysis.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         )
 
         with st.expander("View Raw Data Preview"):
